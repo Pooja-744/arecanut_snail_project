@@ -1,0 +1,2 @@
+farm_id,section_id,observation_date,gps_latitude,gps_longitude,trees_inspected,snails_observed,photo_id,observer_notes
+FARM01,AREA_A,YYYY-MM-DD,,,,,IMG001,

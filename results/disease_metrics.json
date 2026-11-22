@@ -1,0 +1,127 @@
+{
+  "architecture": "MobileNetV2 (Pretrained + Fine-Tuned)",
+  "class_names": [
+    "BUD ROT",
+    "HEALTHY LEAF",
+    "HEALTHY NUT",
+    "KOLEROGA",
+    "RING SPOT",
+    "YELLOW LEAF"
+  ],
+  "dataset_split": {
+    "train": 209,
+    "val": 60,
+    "test": 29
+  },
+  "best_val_loss": 0.21845473398764928,
+  "best_val_acc": 0.95,
+  "test_accuracy": 0.9655172413793104,
+  "classification_report": {
+    "BUD ROT": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "HEALTHY LEAF": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "HEALTHY NUT": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "KOLEROGA": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "RING SPOT": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1-score": 0.8888888888888888,
+      "support": 5.0
+    },
+    "YELLOW LEAF": {
+      "precision": 0.8333333333333334,
+      "recall": 1.0,
+      "f1-score": 0.9090909090909091,
+      "support": 5.0
+    },
+    "accuracy": 0.9655172413793104,
+    "macro avg": {
+      "precision": 0.9722222222222222,
+      "recall": 0.9666666666666667,
+      "f1-score": 0.9663299663299664,
+      "support": 29.0
+    },
+    "weighted avg": {
+      "precision": 0.971264367816092,
+      "recall": 0.9655172413793104,
+      "f1-score": 0.965168930686172,
+      "support": 29.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      5,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      5,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      5,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      4,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      4,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      5
+    ]
+  ],
+  "hyperparameters": {
+    "epochs_run": 14,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "patience": 7
+  }
+}

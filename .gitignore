@@ -1,0 +1,140 @@
+
+# Node.js dependencies
+node_modules/
+**/node_modules/
+
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Datasets - large training data
+datasets/
+dataset/
+data/
+**/datasets/
+**/dataset/
+**/raw_data/
+**/processed_data/
+
+# Uploaded images and user files
+uploads/
+user_uploads/
+static/uploads/
+media/
+
+# Training outputs and temporary files
+runs/
+wandb/
+logs/
+*.log
+checkpoints/
+outputs/
+temp/
+tmp/
+
+# Build files
+dist/
+build/
+.next/
+out/
+coverage/
+
+# IDE and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Database files and local backups
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+
+# Large model training files
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.h5
+*.keras
+*.joblib
+*.pkl
+
+
+
+# Matplotlib and YOLO caches
+.matplotlib/
+.yolo/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Datasets
+datasets/
+dataset/
+data/
+**/datasets/
+**/dataset/
+**/raw_data/
+**/processed_data/
+
+# Temporary results and logs
+*.log
+wandb/
+runs/
+logs/
+temp/
+tmp/
+
+# Build folders
+dist/
+build/
+.next/
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated prediction outputs
+results/plantation_test_outputs/
+results/predictions/
+
+# YOLO training and evaluation outputs
+results/yolo/

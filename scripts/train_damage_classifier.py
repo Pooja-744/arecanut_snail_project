@@ -29,6 +29,8 @@ NUM_EPOCHS = 20
 LEARNING_RATE = 0.001
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+EXPECTED_CLASSES = ["no_damage", "low_damage", "moderate_damage", "severe_damage"]
+
 def prepare_splits():
     import random
     import shutil
@@ -38,18 +40,41 @@ def prepare_splits():
         shutil.rmtree(SPLIT_DATA_DIR)
 
     categories = [d for d in SRC_DATA_DIR.iterdir() if d.is_dir()]
-    print(f"Found {len(categories)} damage classes in {SRC_DATA_DIR}: {[c.name for c in categories]}")
+    cat_names = [c.name for c in categories]
+    print(f"Found {len(categories)} damage classes in {SRC_DATA_DIR}: {cat_names}")
 
+    # Verify 4-class structure
+    for exp_c in EXPECTED_CLASSES:
+        c_dir = SRC_DATA_DIR / exp_c
+        if not c_dir.exists():
+            c_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Created missing class folder: {c_dir}")
+
+    # Check image counts per class
     counts = {}
+    categories = [SRC_DATA_DIR / c for c in EXPECTED_CLASSES if (SRC_DATA_DIR / c).is_dir()]
     for cat in categories:
         imgs = [p for p in cat.glob("*") if p.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp'}]
         counts[cat.name] = len(imgs)
+
+    print("Current class sample distribution:")
+    for c_name, count in counts.items():
+        print(f"  - {c_name}: {count} image(s)")
+
+    # Validate that no_damage has genuine samples before retraining
+    if counts.get("no_damage", 0) < 3:
+        raise ValueError(
+            f"Cannot retrain 4-class damage classifier: 'no_damage' class has only {counts.get('no_damage', 0)} image(s).\n"
+            f"Minimum 3 genuine labelled samples are required for train/val/test split (recommended 50+).\n"
+            f"Please populate 'datasets/damage_dataset/no_damage/' with verified undamaged arecanut plant images.\n"
+            f"Do not fabricate synthetic images or duplicate existing data."
+        )
+
+    for cat in categories:
+        imgs = [p for p in cat.glob("*") if p.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp'}]
         random.shuffle(imgs)
 
         total = len(imgs)
-        if total < 3:
-            raise ValueError(f"Category '{cat.name}' has only {total} images. Minimum 3 images required for split, recommended 50+.")
-
         n_train = max(1, int(round(total * 0.70)))
         n_val = max(1, int(round(total * 0.20)))
         n_test = max(1, total - n_train - n_val)
@@ -62,13 +87,12 @@ def prepare_splits():
             t_dir = SPLIT_DATA_DIR / split / cat.name
             t_dir.mkdir(parents=True, exist_ok=True)
             for f in flist:
-                # Convert to RGB JPEG if needed
                 from PIL import Image
                 with Image.open(f) as im:
                     rgb = im.convert("RGB")
                     rgb.save(t_dir / f"{f.stem}.jpg", "JPEG", quality=95)
 
-    print(f"Damage split prepared at: {SPLIT_DATA_DIR}")
+    print(f"4-class damage split prepared at: {SPLIT_DATA_DIR}")
 
 def train_damage_model():
     print("=" * 70)

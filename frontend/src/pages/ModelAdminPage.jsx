@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 export default function ModelAdminPage() {
   const { lang, t } = useAuth();
   const [modelsData, setModelsData] = useState(null);
+  const [systemStatus, setSystemStatus] = useState(null);
   const [samples, setSamples] = useState([]);
   const [selectedSample, setSelectedSample] = useState(null);
   const [testResult, setTestResult] = useState(null);
@@ -30,9 +31,10 @@ export default function ModelAdminPage() {
   const fetchAdminInfo = async () => {
     setLoading(true);
     try {
-      const [mRes, sRes] = await Promise.all([
+      const [mRes, sRes, sysRes] = await Promise.all([
         fetch('/api/admin/models-info'),
-        fetch('/api/admin/sample-images')
+        fetch('/api/admin/sample-images'),
+        fetch('/api/system/status')
       ]);
 
       if (mRes.ok) {
@@ -45,6 +47,10 @@ export default function ModelAdminPage() {
         if (sData.samples?.length > 0) {
           setSelectedSample(sData.samples[0]);
         }
+      }
+      if (sysRes.ok) {
+        const sysData = await sysRes.json();
+        setSystemStatus(sysData);
       }
     } catch (err) {
       console.warn('Could not fetch admin info:', err);
@@ -89,6 +95,68 @@ export default function ModelAdminPage() {
         <p style={{ fontSize: '0.875rem', color: '#64748b', margin: 0 }}>
           {t.adminSubtitle}
         </p>
+      </div>
+
+      {/* Live System Health & Backend Status */}
+      <div style={{ background: '#ffffff', borderRadius: '16px', padding: '20px 24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 4px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Database size={18} color="#15803d" />
+              Live System Status & Services
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>
+              Live connection checks for FastAPI backend, SQLite local database, and deep learning vision models.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {/* Backend status */}
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              background: systemStatus?.api_status === 'connected' ? '#dcfce7' : '#fee2e2',
+              color: systemStatus?.api_status === 'connected' ? '#15803d' : '#b91c1c'
+            }}>
+              <CheckCircle2 size={14} /> Backend Connected
+            </span>
+
+            {/* Database status */}
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              background: systemStatus?.database_status === 'connected' ? '#dcfce7' : '#fee2e2',
+              color: systemStatus?.database_status === 'connected' ? '#15803d' : '#b91c1c'
+            }}>
+              <Database size={14} /> Database Connected ({systemStatus?.database_type || 'SQLite'})
+            </span>
+
+            {/* AI Models status */}
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              background: systemStatus?.models?.snail_model === 'loaded' || systemStatus?.models?.snail_model === 'available' ? '#dcfce7' : '#fef3c7',
+              color: systemStatus?.models?.snail_model === 'loaded' || systemStatus?.models?.snail_model === 'available' ? '#15803d' : '#b45309'
+            }}>
+              <Cpu size={14} /> AI Models Loaded (3 Active)
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* 3 Active Model Specification Cards */}

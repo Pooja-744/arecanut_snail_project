@@ -25,8 +25,6 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-from backend.core.supabase_client import get_supabase
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
@@ -40,7 +38,7 @@ class DirectReportRequest(BaseModel):
     disease_class: str
     disease_confidence: float
     is_healthy: bool
-    damage_severity: str
+    damage_severity: Optional[str] = None
     recommendation: str
     farmer_name: Optional[str] = "Grower / Farmer"
     plantation_location: Optional[str] = "Field Site"
@@ -158,13 +156,19 @@ def _build_pdf_bytes(data: dict) -> bytes:
     
     raw_severity = data.get("damage_severity")
     is_healthy = data.get("is_healthy", False) or "healthy" in str(data.get("overall_status", "")).lower()
-    if is_healthy or not raw_severity or str(raw_severity).lower() in ("none", "null", "no_damage", "no damage"):
-        display_severity = "No Visible Damage Detected (Healthy)"
+    has_damage = data.get("has_damage", False) if "has_damage" in data else bool(raw_severity and str(raw_severity).lower() not in ("none", "null", "no_damage", "no damage"))
+    if not has_damage or not raw_severity or str(raw_severity).lower() in ("none", "null", "no_damage", "no damage"):
+        display_severity = "No Visible Snail Feeding Damage"
     else:
         display_severity = str(raw_severity).replace("_", " ").title()
 
-    disease_cls = data.get("disease_class", "HEALTHY LEAF").replace("_", " ")
-    disease_display = "Inconclusive / Further Observation" if disease_cls.upper() == "UNCERTAIN" else disease_cls
+    disease_cls = data.get("disease_class", "HEALTHY").replace("_", " ")
+    if disease_cls.upper() in ("HEALTHY", "HEALTHY LEAF", "HEALTHY NUT", "NO_DISEASE"):
+        disease_display = "No Disease Detected (Healthy)"
+    elif disease_cls.upper() == "UNCERTAIN":
+        disease_display = "Inconclusive / Further Observation Required"
+    else:
+        disease_display = disease_cls.title()
 
     findings_data = [
         ["Diagnostic Task", "Model Architecture", "Observed Result", "Confidence", "Action Threshold"],

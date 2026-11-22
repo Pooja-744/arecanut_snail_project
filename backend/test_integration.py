@@ -135,8 +135,72 @@ def run_all_tests():
     assert len(res_chat.json()["reply"]) > 20
     print("✓ 12. Multilingual Chatbot advisory passed in Kannada.")
 
+    # 13. System Status Endpoint (Live Runtime Status)
+    res_sys = client.get("/api/system/status")
+    assert res_sys.status_code == 200
+    sys_data = res_sys.json()
+    assert sys_data["api_status"] == "connected"
+    assert sys_data["database_status"] == "connected"
+    assert sys_data["database_type"] == "SQLite"
+    assert sys_data["models"]["snail_model"] in ("loaded", "available")
+    assert sys_data["models"]["disease_model"] in ("loaded", "available")
+    assert sys_data["models"]["damage_model"] in ("loaded", "available")
+    print(f"✓ 13. System Status endpoint verified: DB={sys_data['database_type']}, Models={sys_data['models']}")
+
+    # 14. Verification of Case 1: Snail present without feeding damage
+    sample_snail_path = Path("datasets/snail/snail dataset/snail in arecanut/Screenshot 2026-09-18 211252.png")
+    if sample_snail_path.exists():
+        with open(sample_snail_path, "rb") as f:
+            res_s1 = client.post("/api/analysis/analyze", files={"file": (sample_snail_path.name, f.read(), "image/png")})
+        assert res_s1.status_code == 200
+        d_s1 = res_s1.json()
+        assert d_s1["snail_detection"]["detected"] is True, "Snail should be detected"
+        assert d_s1["damage_assessment"]["has_damage"] is False, "Snail presence must not imply damage!"
+        assert d_s1["damage_assessment"]["severity"] is None, "Severity must be None when no damage!"
+        print(f"✓ 14. Case 1 verified: Snail detected ({d_s1['snail_detection']['count']}), has_damage={d_s1['damage_assessment']['has_damage']}, severity={d_s1['damage_assessment']['severity']}")
+
+    # 15. Verification of Case 3: Healthy Leaf (No snail, no damage, healthy foliar tissue)
+    healthy_leaf_path = Path("datasets/arecanut/images/HEALTHY LEAF/Healthy leaf(1).jpeg")
+    if healthy_leaf_path.exists():
+        with open(healthy_leaf_path, "rb") as f:
+            res_hl = client.post("/api/analysis/analyze", files={"file": (healthy_leaf_path.name, f.read(), "image/jpeg")})
+        assert res_hl.status_code == 200
+        d_hl = res_hl.json()
+        assert d_hl["snail_detection"]["detected"] is False
+        assert d_hl["damage_assessment"]["has_damage"] is False
+        assert d_hl["overall_status"] == "healthy"
+        print(f"✓ 15. Case 3 verified: Healthy Leaf status={d_hl['overall_status']}, has_damage={d_hl['damage_assessment']['has_damage']}, disease={d_hl['disease_classification']['predicted_class']}")
+
+    # 16. Verification of Dashboard Stats with Independent Fields
+    res_dash = client.get("/api/dashboard/stats", headers=headers)
+    assert res_dash.status_code == 200
+    dash_data = res_dash.json()
+    assert "total_analyses" in dash_data
+    assert "healthy_count" in dash_data
+    assert "snail_count" in dash_data
+    assert "disease_count" in dash_data
+    print(f"✓ 16. Dashboard stats verified: Total={dash_data['total_analyses']}, Healthy={dash_data['healthy_count']}, Snails={dash_data['snail_count']}, Diseases={dash_data['disease_count']}")
+
+    # 17. Verification of Direct PDF Report Generation
+    direct_report_payload = {
+        "analysis_id": "test_direct_001",
+        "overall_status": "healthy",
+        "snail_count": 0,
+        "snail_confidence": 0.0,
+        "disease_class": "HEALTHY LEAF",
+        "disease_confidence": 0.95,
+        "is_healthy": True,
+        "damage_severity": "no_damage",
+        "recommendation": "Continue routine bi-weekly orchard scouting."
+    }
+    res_dir_pdf = client.post("/api/reports/generate-direct", json=direct_report_payload)
+    assert res_dir_pdf.status_code == 200
+    assert res_dir_pdf.headers["content-type"] == "application/pdf"
+    assert len(res_dir_pdf.content) > 1000
+    print(f"✓ 17. Direct PDF Report generated successfully ({len(res_dir_pdf.content)} bytes).")
+
     print("=" * 60)
-    print("ALL 12 VERIFICATION CHECKS COMPLETED SUCCESSFULLY!")
+    print("ALL 17 VERIFICATION CHECKS COMPLETED SUCCESSFULLY!")
     print("=" * 60)
 
 if __name__ == "__main__":

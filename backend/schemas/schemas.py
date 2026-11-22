@@ -102,5 +102,21 @@ class DashboardStats(BaseModel):
     disease_count: int
     snail_count: int
     both_count: int
+    snail_damage_count: int = 0
+    further_inspection_count: int = 0
     recent_analyses: list[dict[str, Any]]
     disease_distribution: dict[str, int]
+
+
+# ---------------------------------------------------------------------------
+# System Status
+# ---------------------------------------------------------------------------
+class SystemStatusResponse(BaseModel):
+    api_status: str
+    database_status: str
+    database_type: str
+    database_path: Optional[str] = None
+    supabase_status: str
+    models: dict[str, str]
+    model_files: dict[str, bool]
+

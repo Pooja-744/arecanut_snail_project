@@ -73,7 +73,7 @@ def init_db():
             disease_class TEXT DEFAULT 'HEALTHY',
             disease_confidence REAL DEFAULT 0.0,
             is_healthy INTEGER DEFAULT 1,
-            damage_severity TEXT DEFAULT 'low_damage',
+            damage_severity TEXT DEFAULT NULL,
             damage_confidence REAL DEFAULT 0.0,
             recommendation TEXT,
             original_image TEXT,
@@ -174,6 +174,10 @@ def save_analysis_record(data: dict[str, Any]) -> str:
     cursor = conn.cursor()
     analysis_id = data.get("id") or str(uuid.uuid4())
 
+    damage_sev = data.get("damage_severity")
+    if not damage_sev or str(damage_sev).lower() in ("none", "null", "no_damage", "no damage"):
+        damage_sev = None
+
     cursor.execute(
         """
         INSERT INTO analyses (
@@ -193,8 +197,8 @@ def save_analysis_record(data: dict[str, Any]) -> str:
             data.get("disease_class", "HEALTHY"),
             data.get("disease_confidence", 0.0),
             1 if data.get("is_healthy") else 0,
-            data.get("damage_severity", "low_damage"),
-            data.get("damage_confidence", 0.0),
+            damage_sev,
+            data.get("damage_confidence", 0.0) if damage_sev else 0.0,
             data.get("recommendation", ""),
             data.get("original_image", ""),
             data.get("annotated_image", "")
@@ -291,15 +295,37 @@ def get_dashboard_summary(user_id: Optional[str] = None) -> dict[str, Any]:
     conn.close()
 
     total = len(rows)
-    healthy = sum(1 for r in rows if r["is_healthy"] and not r["snail_detected"])
-    disease = sum(1 for r in rows if not r["is_healthy"] and not r["snail_detected"])
-    snail = sum(1 for r in rows if r["snail_detected"] and r["is_healthy"])
-    both = sum(1 for r in rows if r["snail_detected"] and not r["is_healthy"])
+    healthy = 0
+    disease = 0
+    snail = 0
+    snail_damage = 0
+    both = 0
+    further_inspection = 0
 
     disease_dist: dict[str, int] = {}
     for r in rows:
+        status = r["overall_status"]
+        is_h = bool(r["is_healthy"])
+        has_s = bool(r["snail_detected"])
+        sev = r["damage_severity"]
+        has_d = bool(sev and str(sev).lower() not in ("none", "null", "no_damage", "no damage"))
         dc = r["disease_class"]
-        if dc and not r["is_healthy"]:
+        has_dis = bool(not is_h and dc not in ("HEALTHY", "NO_DISEASE", "UNCERTAIN"))
+
+        if status == "both_detected" or (has_s and has_dis):
+            both += 1
+        elif status == "disease_detected" or (has_dis and not has_s and not has_d):
+            disease += 1
+        elif status == "snail_damage_detected" or (has_d and not has_dis):
+            snail_damage += 1
+        elif status == "snail_detected" or (has_s and not has_d and not has_dis):
+            snail += 1
+        elif status == "further_inspection" or dc == "UNCERTAIN":
+            further_inspection += 1
+        else:
+            healthy += 1
+
+        if dc and not is_h and dc not in ("HEALTHY", "NO_DISEASE", "UNCERTAIN"):
             disease_dist[dc] = disease_dist.get(dc, 0) + 1
 
     recent = [dict(r) for r in sorted(rows, key=lambda x: x["created_at"], reverse=True)[:5]]
@@ -314,7 +340,9 @@ def get_dashboard_summary(user_id: Optional[str] = None) -> dict[str, Any]:
         "healthy_count": healthy,
         "disease_count": disease,
         "snail_count": snail,
+        "snail_damage_count": snail_damage,
         "both_count": both,
+        "further_inspection_count": further_inspection,
         "recent_analyses": recent,
         "disease_distribution": disease_dist
     }

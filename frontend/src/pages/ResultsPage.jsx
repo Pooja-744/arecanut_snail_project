@@ -59,10 +59,12 @@ export default function ResultsPage({ analysisData, originalPreview, onNavigate 
   const originalImgSrc = original_image || originalPreview;
   const annotatedImgSrc = annotated_image || originalPreview;
 
-  const isHealthy = disease_classification?.is_healthy || overall_status === 'healthy';
-  const snailFound = snail_detection?.detected && (snail_detection?.count > 0);
-  const hasDamage = damage_assessment?.has_damage;
-  const damageSeverity = damage_assessment?.severity;
+  const isHealthy = disease_classification?.is_healthy || ['HEALTHY', 'HEALTHY LEAF', 'HEALTHY NUT', 'NO_DISEASE'].includes(disease_classification?.predicted_class);
+  const isUncertain = disease_classification?.predicted_class === 'UNCERTAIN';
+  const hasGenuineDisease = !isHealthy && !isUncertain && Boolean(disease_classification?.predicted_class) && !['HEALTHY', 'HEALTHY LEAF', 'HEALTHY NUT', 'NO_DISEASE', 'UNCERTAIN'].includes(disease_classification?.predicted_class);
+  const snailFound = Boolean(snail_detection?.detected) && (snail_detection?.count > 0);
+  const hasDamage = Boolean(damage_assessment?.has_damage) && Boolean(damage_assessment?.severity) && ['low_damage', 'moderate_damage', 'severe_damage'].includes(damage_assessment?.severity);
+  const damageSeverity = hasDamage ? damage_assessment?.severity : null;
 
   const handleDownloadPdf = async () => {
     setDownloading(true);
@@ -105,18 +107,24 @@ export default function ResultsPage({ analysisData, originalPreview, onNavigate 
     }
   };
 
-  // Determine overall status colors
+  // Determine overall status colors strictly matching backend states
   let statusBadgeBg = '#dcfce7';
   let statusBadgeText = '#15803d';
   if (overall_status === 'both_detected') {
+    statusBadgeBg = '#fecdd3';
+    statusBadgeText = '#9f1239';
+  } else if (overall_status === 'disease_detected') {
     statusBadgeBg = '#fee2e2';
     statusBadgeText = '#b91c1c';
-  } else if (snailFound || overall_status === 'snail_only') {
+  } else if (overall_status === 'snail_damage_detected') {
+    statusBadgeBg = '#ffedd5';
+    statusBadgeText = '#c2410c';
+  } else if (overall_status === 'snail_detected' || snailFound) {
     statusBadgeBg = '#fef3c7';
     statusBadgeText = '#b45309';
-  } else if (!isHealthy || overall_status === 'disease_only') {
-    statusBadgeBg = '#fee2e2';
-    statusBadgeText = '#b91c1c';
+  } else if (overall_status === 'further_inspection' || isUncertain) {
+    statusBadgeBg = '#f1f5f9';
+    statusBadgeText = '#475569';
   }
 
   return (
@@ -152,7 +160,7 @@ export default function ResultsPage({ analysisData, originalPreview, onNavigate 
             </span>
           </div>
           <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-            {disease_classification?.predicted_class?.replace('_', ' ')}
+            {overall_status_text || overall_status?.replace('_', ' ').toUpperCase()}
           </h2>
         </div>
 
@@ -310,9 +318,9 @@ export default function ResultsPage({ analysisData, originalPreview, onNavigate 
         )}
       </div>
 
-      {/* 4 DISTINCT DIAGNOSTIC RESULT CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-        {/* CARD 1: Giant African Snail Detection */}
+      {/* DYNAMIC DIAGNOSTIC RESULT CARDS (Condition-Based Conditional Rendering) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+        {/* CARD 1: Giant African Snail Detection (Always displayed) */}
         <div style={{ background: '#ffffff', borderRadius: '16px', padding: '22px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <span style={{ fontSize: '0.775rem', fontWeight: 800, color: '#64748b' }}>{t.cardSnailTitle}</span>
@@ -333,59 +341,59 @@ export default function ResultsPage({ analysisData, originalPreview, onNavigate 
           </div>
         </div>
 
-        {/* CARD 2: Arecanut Disease Classification */}
-        <div style={{ background: '#ffffff', borderRadius: '16px', padding: '22px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.775rem', fontWeight: 800, color: '#64748b' }}>{t.cardDiseaseTitle}</span>
-            <div style={{ background: isHealthy ? '#f0fdf4' : '#fee2e2', padding: '8px', borderRadius: '8px' }}>
-              <Activity size={20} color={isHealthy ? '#15803d' : '#dc2626'} />
+        {/* CARD 2: Arecanut Disease Classification (Displayed ONLY when a genuine disease is diagnosed) */}
+        {hasGenuineDisease && (
+          <div style={{ background: '#ffffff', borderRadius: '16px', padding: '22px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.775rem', fontWeight: 800, color: '#64748b' }}>{t.cardDiseaseTitle}</span>
+              <div style={{ background: '#fee2e2', padding: '8px', borderRadius: '8px' }}>
+                <Activity size={20} color="#dc2626" />
+              </div>
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#dc2626', marginBottom: '4px' }}>
+              {disease_classification?.predicted_class?.replace('_', ' ')}
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 12px 0' }}>
+              {disease_classification?.explanation || 'Pathogen detected on foliage/bunches.'}
+            </p>
+            <div style={{ marginTop: 'auto', fontSize: '0.775rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+              <div><strong>{t.confidence}:</strong> {((disease_classification?.confidence || 0) * 100).toFixed(1)}%</div>
+              <div><strong>Status:</strong> Infected - Treatment Required</div>
+              <div><strong>Model:</strong> MobileNetV2 (Decoupled from Snail)</div>
             </div>
           </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: isHealthy ? '#15803d' : '#dc2626', marginBottom: '4px' }}>
-            {disease_classification?.predicted_class?.replace('_', ' ')}
-          </div>
-          <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 12px 0' }}>
-            {disease_classification?.explanation || (isHealthy ? 'Healthy foliar tissue with no signs of fungal infection.' : 'Pathogen detected on foliage/bunches.')}
-          </p>
-          <div style={{ marginTop: 'auto', fontSize: '0.775rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
-            <div><strong>{t.confidence}:</strong> {((disease_classification?.confidence || 0) * 100).toFixed(1)}%</div>
-            <div><strong>Status:</strong> {isHealthy ? 'Healthy Plant' : 'Infected - Treatment Required'}</div>
-            <div><strong>Model:</strong> MobileNetV2 (Decoupled from Snail)</div>
-          </div>
-        </div>
+        )}
 
-        {/* CARD 3: Snail Feeding Damage Severity (NEVER "Low Damage" on Healthy!) */}
-        <div style={{ background: '#ffffff', borderRadius: '16px', padding: '22px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.775rem', fontWeight: 800, color: '#64748b' }}>{t.cardDamageTitle}</span>
-            <div style={{ background: hasDamage ? '#fee2e2' : '#f0fdf4', padding: '8px', borderRadius: '8px' }}>
-              <AlertTriangle size={20} color={hasDamage ? '#dc2626' : '#15803d'} />
+        {/* CARD 3: Snail Feeding Damage Severity (Displayed ONLY when has_damage is true with positive severity) */}
+        {hasDamage && (
+          <div style={{ background: '#ffffff', borderRadius: '16px', padding: '22px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.775rem', fontWeight: 800, color: '#64748b' }}>{t.cardDamageTitle}</span>
+              <div style={{ background: '#fee2e2', padding: '8px', borderRadius: '8px' }}>
+                <AlertTriangle size={20} color="#dc2626" />
+              </div>
+            </div>
+            <div style={{
+              fontSize: '1.35rem',
+              fontWeight: 800,
+              textTransform: 'capitalize',
+              color: damageSeverity === 'severe_damage' ? '#dc2626' : '#d97706',
+              marginBottom: '4px'
+            }}>
+              {damageSeverity.replace('_', ' ')}
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 12px 0' }}>
+              {damage_assessment?.explanation || `Physical feeding damage evaluated as ${damageSeverity.replace('_', ' ')}.`}
+            </p>
+            <div style={{ marginTop: 'auto', fontSize: '0.775rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+              <div><strong>Damage Status:</strong> Feeding Lesions Present</div>
+              <div><strong>Rating:</strong> {damageSeverity.replace('_', ' ')}</div>
+              <div><strong>Model:</strong> MobileNetV2 Damage Classifier</div>
             </div>
           </div>
-          <div style={{
-            fontSize: '1.35rem',
-            fontWeight: 800,
-            textTransform: 'capitalize',
-            color: hasDamage ? (damageSeverity === 'severe_damage' ? '#dc2626' : '#d97706') : '#15803d',
-            marginBottom: '4px'
-          }}>
-            {hasDamage && damageSeverity
-              ? damageSeverity.replace('_', ' ')
-              : (lang === 'kn' ? 'ಯಾವುದೇ ಗೋಚರ ಹಾನಿಯಿಲ್ಲ' : 'No Visible Damage')}
-          </div>
-          <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 12px 0' }}>
-            {hasDamage
-              ? (damage_assessment?.explanation || `Physical feeding damage evaluated as ${damageSeverity?.replace('_', ' ')}.`)
-              : (lang === 'kn' ? 'ಆರೋಗ್ಯಕರ ಸಸ್ಯ - ಯಾವುದೇ ಬಸವನಹುಳು ಹಾನಿ ಪತ್ತೆಯಾಗಿಲ್ಲ.' : 'Healthy Plant — No snail feeding damage detected.')}
-          </p>
-          <div style={{ marginTop: 'auto', fontSize: '0.775rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
-            <div><strong>Damage Status:</strong> {hasDamage ? 'Feeding Lesions Present' : 'None / Clear'}</div>
-            <div><strong>Rating:</strong> {hasDamage ? damageSeverity?.replace('_', ' ') : 'Healthy Condition'}</div>
-            <div><strong>Model:</strong> MobileNetV2 3-Head Classifier</div>
-          </div>
-        </div>
+        )}
 
-        {/* CARD 4: Overall Plant Health Status */}
+        {/* CARD 4: Overall Plant Health Status (Always displayed) */}
         <div style={{ background: '#ffffff', borderRadius: '16px', padding: '22px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <span style={{ fontSize: '0.775rem', fontWeight: 800, color: '#64748b' }}>{t.cardOverallTitle}</span>
@@ -397,13 +405,13 @@ export default function ResultsPage({ analysisData, originalPreview, onNavigate 
             {overall_status_text || overall_status?.replace('_', ' ').toUpperCase()}
           </div>
           <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 12px 0' }}>
-            {isHealthy && !snailFound
+            {isHealthy && !snailFound && !hasDamage
               ? (lang === 'kn' ? 'ಸಸ್ಯವು ಸಂಪೂರ್ಣವಾಗಿ ಆರೋಗ್ಯಕರವಾಗಿದೆ ಮತ್ತು ಕೀಟಮುಕ್ತವಾಗಿದೆ.' : 'Plant is in healthy condition with no pests or pathogens detected.')
-              : (lang === 'kn' ? 'ತಕ್ಷಣದ ನಿರ್ವಹಣಾ ಕ್ರಮಗಳನ್ನು ಕೈಗೊಳ್ಳಿ.' : 'Review recommended treatments and home remedies below.')}
+              : (lang === 'kn' ? 'ತಕ್ಷಣದ ನಿರ್ವಹಣಾ ಕ್ರಮಗಳನ್ನು ಕೈಗೊಳ್ಳಿ.' : 'Review recommended treatments and remedies below.')}
           </p>
           <div style={{ marginTop: 'auto', fontSize: '0.775rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
             <div><strong>Diagnostic Summary:</strong> {overall_status?.replace('_', ' ').toUpperCase()}</div>
-            <div><strong>Intervention:</strong> {isHealthy && !snailFound ? 'Routine Surveillance' : 'Active Management Required'}</div>
+            <div><strong>Intervention:</strong> {isHealthy && !snailFound && !hasDamage ? 'Routine Surveillance' : 'Active Management Required'}</div>
             <div><strong>Advisory:</strong> Verified agronomic protocol</div>
           </div>
         </div>

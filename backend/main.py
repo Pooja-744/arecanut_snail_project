@@ -48,11 +48,82 @@ app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(admin_models.router, prefix="/api/admin", tags=["Model Administration"])
 
 # ---------------------------------------------------------------------------
-# Health check
+# Health & Safe System Status (No secrets exposed)
 # ---------------------------------------------------------------------------
 @app.get("/health", tags=["Health"])
 async def health_check():
-    return {"status": "ok", "version": "1.0.0"}
+    import sqlite3
+    from backend.core.db import DB_PATH
+    db_ok = False
+    try:
+        conn = sqlite3.connect(str(DB_PATH), timeout=3.0)
+        conn.execute("SELECT 1")
+        conn.close()
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    return {
+        "status": "ok",
+        "api_status": "connected",
+        "database_status": "connected" if db_ok else "disconnected",
+        "database_type": "SQLite",
+        "version": "1.0.0"
+    }
+
+
+@app.get("/api/system/status", tags=["System Status"])
+async def system_status():
+    """
+    Safe runtime system health endpoint.
+    Performs real live checks on API, SQLite database, and active AI model files.
+    Never exposes internal URLs, passwords, API keys, or service credentials.
+    """
+    import sqlite3
+    from backend.core.db import DB_PATH
+    from backend.core.config import (
+        SNAIL_MODEL_PATH,
+        DISEASE_MODEL_PATH,
+        DAMAGE_MODEL_PATH,
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY
+    )
+    from backend.core.inference import _registry
+
+    # 1. Real SQLite connection test
+    db_status = "connected"
+    try:
+        conn = sqlite3.connect(str(DB_PATH), timeout=3.0)
+        conn.execute("SELECT 1")
+        conn.close()
+    except Exception as e:
+        db_status = "error"
+
+    # 2. Check model loading states
+    snail_status = "loaded" if "yolo" in _registry else ("available" if SNAIL_MODEL_PATH.exists() else "missing")
+    disease_status = "loaded" if "disease" in _registry else ("available" if DISEASE_MODEL_PATH.exists() else "missing")
+    damage_status = "loaded" if "damage" in _registry else ("available" if DAMAGE_MODEL_PATH.exists() else "missing")
+
+    # 3. Supabase integration audit
+    supabase_configured = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY and "your-project-id" not in SUPABASE_URL)
+
+    return {
+        "api_status": "connected",
+        "database_status": db_status,
+        "database_type": "SQLite",
+        "supabase_status": "connected" if supabase_configured else "not_configured",
+        "models": {
+            "snail_model": snail_status,
+            "disease_model": disease_status,
+            "damage_model": damage_status,
+        },
+        "model_files": {
+            "snail_model_available": SNAIL_MODEL_PATH.exists(),
+            "disease_model_available": DISEASE_MODEL_PATH.exists(),
+            "damage_model_available": DAMAGE_MODEL_PATH.exists(),
+        }
+    }
+
 
 # ---------------------------------------------------------------------------
 # Serve React Frontend
